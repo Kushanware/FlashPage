@@ -6,6 +6,11 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SwipeCard } from './swipe-card'
 import { Clock, RotateCcw, Volume2 } from 'lucide-react'
+import { recordCardCompletion, updateUserStamina } from '@/lib/supabase-client'
+
+// TODO: Replace with real user ID from auth context
+const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
+const MOCK_DECK_ID = '123' // This should come from the selected deck
 
 interface ShortCard {
   id: string
@@ -103,9 +108,17 @@ export function ShortsSection() {
 
   const currentCard = cards[currentIndex]
 
-  const handleCardAction = (action: 'learned' | 'skipped') => {
+  const handleCardAction = async (action: 'learned' | 'skipped') => {
     setShowSimplified(false)
     setQuizAnswer(null)
+
+    // Fire and forget progress tracking
+    if (currentCard) {
+      recordCardCompletion(MOCK_USER_ID, MOCK_DECK_ID, currentCard.id.toString(), action)
+      if (action === 'learned') {
+        updateUserStamina(MOCK_USER_ID, 1, 15) // Assume 15 words per card for now
+      }
+    }
 
     if (currentIndex < cards.length - 1) {
       setStats((prev) => ({
@@ -213,15 +226,14 @@ export function ShortsSection() {
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           disabled={quizAnswer !== null}
-                          className={`w-full p-4 rounded-lg border-2 transition-all text-left font-medium ${
-                            quizAnswer === idx
+                          className={`w-full p-4 rounded-lg border-2 transition-all text-left font-medium ${quizAnswer === idx
                               ? idx === currentCard.quizAnswer
                                 ? 'border-green-500 bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
                                 : 'border-red-500 bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100'
                               : quizAnswer !== null && idx === currentCard.quizAnswer
                                 ? 'border-green-500 bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
                                 : 'border-border hover:border-primary/50 bg-card text-foreground'
-                          }`}
+                            }`}
                         >
                           {option}
                         </motion.button>
@@ -232,11 +244,10 @@ export function ShortsSection() {
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`p-4 rounded-lg mb-6 ${
-                          quizAnswer === currentCard.quizAnswer
+                        className={`p-4 rounded-lg mb-6 ${quizAnswer === currentCard.quizAnswer
                             ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
                             : 'bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100'
-                        }`}
+                          }`}
                       >
                         {quizAnswer === currentCard.quizAnswer ? (
                           <p className="font-semibold">Correct! You understood the concept.</p>

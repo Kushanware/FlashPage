@@ -6,6 +6,11 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Copy, Share2, Award, TrendingUp, Zap, BookOpen } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { getUserStamina, UserStamina } from '@/lib/supabase-client'
+import { useEffect } from 'react'
+
+// TODO: Replace with real user ID
+const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
 
 const weeklyData = [
   { day: 'Mon', minutes: 24 },
@@ -65,21 +70,29 @@ const badges = [
 export function SkillTreeSection() {
   const [copiedLink, setCopiedLink] = useState(false)
 
-  // Stamina Score Calculation
-  const stamina = 14
-  const staminaLevel = {
-    1: 'Novice',
-    5: 'Apprentice',
-    10: 'Adept',
-    15: 'Expert',
-    20: 'Master',
-  }
+  const [userStamina, setUserStamina] = useState<UserStamina | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const getStaminaTitle = () => {
-    if (stamina >= 20) return 'Master Reader'
-    if (stamina >= 15) return 'Focus Knight'
-    if (stamina >= 10) return 'Reading Sage'
-    if (stamina >= 5) return 'Word Warrior'
+  useEffect(() => {
+    async function loadStats() {
+      const stats = await getUserStamina(MOCK_USER_ID)
+      if (stats) {
+        setUserStamina(stats)
+      }
+      setLoading(false)
+    }
+    loadStats()
+  }, [])
+
+  // Stamina Score Calculation
+  // Use DB value or default to 14 if loading/null for demo preservation
+  const staminaScore = userStamina ? Math.floor(userStamina.totalCardsCompleted / 5) : 14
+
+  const getStaminaTitle = (score: number) => {
+    if (score >= 20) return 'Master Reader'
+    if (score >= 15) return 'Focus Knight'
+    if (score >= 10) return 'Reading Sage'
+    if (score >= 5) return 'Word Warrior'
     return 'Literacy Learner'
   }
 
@@ -110,24 +123,22 @@ export function SkillTreeSection() {
                 Stamina Score
               </p>
               <div className="space-y-2 mb-6">
-                <h2 className="text-5xl font-bold text-foreground">Level {stamina}</h2>
-                <p className="text-2xl font-semibold text-primary">{getStaminaTitle()}</p>
+                <h2 className="text-5xl font-bold text-foreground">Level {staminaScore}</h2>
+                <p className="text-2xl font-semibold text-primary">{getStaminaTitle(staminaScore)}</p>
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-muted-foreground">Progress to Level 15</span>
-                    <span className="text-sm font-semibold text-primary">75%</span>
-                  </div>
-                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: '75%' }}
-                      transition={{ duration: 1, ease: 'easeOut' }}
-                      className="h-full bg-gradient-to-r from-primary to-accent"
-                    />
-                  </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-muted-foreground">Progress to Level 15</span>
+                  <span className="text-sm font-semibold text-primary">75%</span>
+                </div>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: '75%' }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                    className="h-full bg-gradient-to-r from-primary to-accent"
+                  />
                 </div>
               </div>
             </div>
@@ -137,12 +148,16 @@ export function SkillTreeSection() {
               <div className="bg-card/50 rounded-lg p-4 border border-border">
                 <BookOpen className="w-6 h-6 text-primary mb-2" />
                 <p className="text-sm text-muted-foreground mb-1">Total Time</p>
-                <p className="text-2xl font-bold text-foreground">45h 23m</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {userStamina ? Math.floor(userStamina.totalTimeSpent / 60) + 'h' : '0h'}
+                </p>
               </div>
               <div className="bg-card/50 rounded-lg p-4 border border-border">
                 <Zap className="w-6 h-6 text-accent mb-2" />
                 <p className="text-sm text-muted-foreground mb-1">Current Streak</p>
-                <p className="text-2xl font-bold text-foreground">5 days</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {userStamina?.currentStreak || 0} days
+                </p>
               </div>
               <div className="bg-card/50 rounded-lg p-4 border border-border">
                 <TrendingUp className="w-6 h-6 text-green-500 mb-2" />
@@ -208,11 +223,10 @@ export function SkillTreeSection() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: idx * 0.05 }}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  badge.unlocked
-                    ? 'border-primary/50 bg-gradient-to-br from-primary/5 to-accent/5'
-                    : 'border-border bg-muted/50 opacity-60'
-                }`}
+                className={`p-4 rounded-lg border-2 transition-all ${badge.unlocked
+                  ? 'border-primary/50 bg-gradient-to-br from-primary/5 to-accent/5'
+                  : 'border-border bg-muted/50 opacity-60'
+                  }`}
               >
                 <div className="text-4xl mb-2">{badge.icon}</div>
                 <h4 className="font-semibold text-foreground mb-1">{badge.name}</h4>

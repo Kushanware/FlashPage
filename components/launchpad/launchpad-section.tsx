@@ -5,6 +5,8 @@ import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Zap, Loader2, Sparkles } from 'lucide-react'
+import { generateDeckAction } from '@/app/actions'
+import { toast } from 'sonner'
 
 type VibeLevel = 'kid' | 'student' | 'pro'
 
@@ -54,23 +56,22 @@ export function LaunchpadSection() {
 
     setIsLoading(true)
     try {
-      // Placeholder for Groq API call
-      console.log('[v0] Generating deck with vibe:', selectedVibe)
-      console.log('[v0] Input text:', textInput.substring(0, 100))
+      console.log('Generating deck with vibe:', selectedVibe)
 
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const result = await generateDeckAction(textInput, selectedVibe)
 
-      // Mock response structure
-      setGeneratedDeck({
-        title: 'Generated Deck',
-        cards: [
-          { id: '1', hook: 'First Key Concept', meat: 'Detailed explanation here...' },
-          { id: '2', hook: 'Second Key Concept', meat: 'More information...' },
-        ],
-      })
+      if (result.success && result.cards) {
+        setGeneratedDeck({
+          title: 'Generated Deck',
+          cards: result.cards,
+        })
+        toast.success('Deck generated successfully!')
+      } else {
+        throw new Error(result.error || 'Failed to generate deck')
+      }
     } catch (error) {
-      console.error('[v0] Error generating deck:', error)
+      console.error('Error generating deck:', error)
+      toast.error('Failed to generate deck. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -118,11 +119,10 @@ export function LaunchpadSection() {
                 onClick={() => setSelectedVibe(vibe.id)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedVibe === vibe.id
+                className={`p-4 rounded-lg border-2 transition-all text-left ${selectedVibe === vibe.id
                     ? 'border-primary bg-primary/10'
                     : 'border-border bg-card hover:border-primary/50'
-                }`}
+                  }`}
               >
                 <div className="text-4xl mb-2">{vibe.emoji}</div>
                 <h4 className="font-semibold text-foreground">{vibe.label}</h4>
