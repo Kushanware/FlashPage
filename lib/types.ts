@@ -1,11 +1,14 @@
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
 
 export interface Card {
-  id: string
+  id: string | number
   content: string
   context?: string
-  category: string
-  difficulty: Difficulty
+  category?: string
+  difficulty?: Difficulty
+  emoji?: string
+  hook?: string
+  quiz?: string
 }
 
 export interface Deck {
