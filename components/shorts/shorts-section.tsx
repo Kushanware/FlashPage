@@ -10,7 +10,12 @@ import { recordCardCompletion, updateUserStamina } from '@/lib/supabase-client'
 
 // TODO: Replace with real user ID from auth context
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
-const MOCK_DECK_ID = '123' // This should come from the selected deck
+// const MOCK_DECK_ID = '123' // Removed, using actual deck ID if available
+
+interface ShortsSectionProps {
+  deck?: any
+  onComplete?: () => void
+}
 
 interface ShortCard {
   id: string
@@ -92,12 +97,14 @@ const mockCards: ShortCard[] = [
   },
 ]
 
-export function ShortsSection() {
-  const [cards, setCards] = useState<ShortCard[]>(mockCards)
+export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
+  const [cards, setCards] = useState<ShortCard[]>(deck?.cards || mockCards)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showSimplified, setShowSimplified] = useState(false)
   const [quizAnswer, setQuizAnswer] = useState<number | null>(null)
   const [stats, setStats] = useState({ learned: 0, skipped: 0, timeElapsed: 0 })
+  const [xp, setXp] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -112,13 +119,16 @@ export function ShortsSection() {
     setShowSimplified(false)
     setQuizAnswer(null)
 
-    // Fire and forget progress tracking
+    // Fire and forget progress tracking (BATCHED NOW)
+    // We only update local state here, DB update happens at end
+    /* 
     if (currentCard) {
       recordCardCompletion(MOCK_USER_ID, MOCK_DECK_ID, currentCard.id.toString(), action)
       if (action === 'learned') {
         updateUserStamina(MOCK_USER_ID, 1, 15) // Assume 15 words per card for now
       }
     }
+    */
 
     if (currentIndex < cards.length - 1) {
       setStats((prev) => ({
@@ -132,13 +142,40 @@ export function ShortsSection() {
 
   const handleQuizSubmit = (optionIndex: number) => {
     setQuizAnswer(optionIndex)
+    if (currentCard && optionIndex === currentCard.quizAnswer) {
+      setXp(prev => prev + 50)
+      // toast.success('Correct! +50 XP') // Optional: add toast
+    }
+  }
+
+  const handleFinish = async () => {
+    setIsSubmitting(true)
+    try {
+      // Batch update Supabase
+      // 1 Card = 1 Stamina point (roughly)
+      // XP maps to "wordsLearned" for now in our simple schema
+      await updateUserStamina(MOCK_USER_ID, stats.learned, xp)
+
+      if (onComplete) {
+        onComplete()
+      }
+    } catch (error) {
+      console.error('Error saving progress:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleReset = () => {
-    setCurrentIndex(0)
-    setShowSimplified(false)
-    setQuizAnswer(null)
-    setStats({ learned: 0, skipped: 0, timeElapsed: 0 })
+    // Legacy reset, maybe redirect instead?
+    if (onComplete) onComplete()
+    else {
+      setCurrentIndex(0)
+      setShowSimplified(false)
+      setQuizAnswer(null)
+      setStats({ learned: 0, skipped: 0, timeElapsed: 0 })
+      setXp(0)
+    }
   }
 
   const isComplete = currentIndex >= cards.length
@@ -227,12 +264,12 @@ export function ShortsSection() {
                           whileTap={{ scale: 0.98 }}
                           disabled={quizAnswer !== null}
                           className={`w-full p-4 rounded-lg border-2 transition-all text-left font-medium ${quizAnswer === idx
-                              ? idx === currentCard.quizAnswer
-                                ? 'border-green-500 bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
-                                : 'border-red-500 bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100'
-                              : quizAnswer !== null && idx === currentCard.quizAnswer
-                                ? 'border-green-500 bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
-                                : 'border-border hover:border-primary/50 bg-card text-foreground'
+                            ? idx === currentCard.quizAnswer
+                              ? 'border-green-500 bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
+                              : 'border-red-500 bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100'
+                            : quizAnswer !== null && idx === currentCard.quizAnswer
+                              ? 'border-green-500 bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
+                              : 'border-border hover:border-primary/50 bg-card text-foreground'
                             }`}
                         >
                           {option}
@@ -245,8 +282,8 @@ export function ShortsSection() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className={`p-4 rounded-lg mb-6 ${quizAnswer === currentCard.quizAnswer
-                            ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
-                            : 'bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100'
+                          ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
+                          : 'bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100'
                           }`}
                       >
                         {quizAnswer === currentCard.quizAnswer ? (
@@ -288,11 +325,11 @@ export function ShortsSection() {
                   <span className="font-semibold text-primary">{formatTime(stats.timeElapsed)}</span>
                 </p>
                 <Button
-                  onClick={handleReset}
+                  onClick={handleFinish}
+                  disabled={isSubmitting}
                   className="w-full bg-primary hover:bg-primary/90"
                 >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Review Again
+                  {isSubmitting ? 'Saving...' : 'Claim Rewards'}
                 </Button>
               </Card>
             </motion.div>

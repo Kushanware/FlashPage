@@ -45,7 +45,15 @@ const vibes: VibeOption[] = [
   },
 ]
 
-export function LaunchpadSection() {
+import { saveDeck } from '@/lib/supabase-client'
+
+const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
+
+interface LaunchpadSectionProps {
+  onDeckGenerated?: (deck: any) => void
+}
+
+export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
   const [selectedVibe, setSelectedVibe] = useState<VibeLevel>('student')
   const [textInput, setTextInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -65,7 +73,26 @@ export function LaunchpadSection() {
           title: 'Generated Deck',
           cards: result.cards,
         })
-        toast.success('Deck generated successfully!')
+
+        // Save to Supabase (Step 2: The Transformation)
+        const savedDeck = await saveDeck(MOCK_USER_ID, {
+          title: 'AI Generated Deck',
+          description: `Generated from text with ${selectedVibe} vibe`,
+          cards: result.cards,
+          // Mapping generated cards to match DeckData structure roughly
+          // We might need to adjust types if strict validation is on
+        } as any)
+
+        toast.success('Deck generated and saved!')
+
+        // Redirect to Arena (Show step)
+        if (onDeckGenerated) {
+          // wait a brief moment to show success
+          setTimeout(() => {
+            onDeckGenerated(savedDeck || { cards: result.cards })
+          }, 1000)
+        }
+
       } else {
         throw new Error(result.error || 'Failed to generate deck')
       }
@@ -120,8 +147,8 @@ export function LaunchpadSection() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className={`p-4 rounded-lg border-2 transition-all text-left ${selectedVibe === vibe.id
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border bg-card hover:border-primary/50'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-card hover:border-primary/50'
                   }`}
               >
                 <div className="text-4xl mb-2">{vibe.emoji}</div>
