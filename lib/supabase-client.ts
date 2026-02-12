@@ -197,10 +197,10 @@ export async function getDeckProgress(userId: string, deckId: string) {
     return { cardsCompleted: 0, cardsSkipped: 0, lastReviewedDate: null }
   }
 
-  const cardsCompleted = data.filter(d => d.action === 'learned').length
-  const cardsSkipped = data.filter(d => d.action === 'skipped').length
+  const cardsCompleted = data.filter((d: { action: string }) => d.action === 'learned').length
+  const cardsSkipped = data.filter((d: { action: string }) => d.action === 'skipped').length
   // improved logic to safer acess to date
-  const lastReviewedDate = data.length > 0 ? data.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())[0].completed_at : null
+  const lastReviewedDate = data.length > 0 ? data.sort((a: { completed_at: string | number | Date }, b: { completed_at: string | number | Date }) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())[0].completed_at : null
 
   return {
     cardsCompleted,
@@ -231,7 +231,6 @@ export async function recordCardCompletion(
       deck_id: deckId,
       card_id: cardId,
       action,
-      //@ts-ignore - supabase types might be strict about dates but strings usually work
       completed_at: new Date().toISOString()
     }])
 

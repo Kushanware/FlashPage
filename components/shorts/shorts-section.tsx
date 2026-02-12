@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SwipeCard } from './swipe-card'
-import { Clock, RotateCcw, Volume2 } from 'lucide-react'
+import { Clock, RotateCcw, Volume2, Sparkles } from 'lucide-react'
 import { recordCardCompletion, updateUserStamina } from '@/lib/supabase-client'
 
 // TODO: Replace with real user ID from auth context
@@ -130,7 +130,7 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
     }
     */
 
-    if (currentIndex < cards.length - 1) {
+    if (currentIndex < cards.length) {
       setStats((prev) => ({
         ...prev,
         learned: action === 'learned' ? prev.learned + 1 : prev.learned,
@@ -287,9 +287,12 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
                           }`}
                       >
                         {quizAnswer === currentCard.quizAnswer ? (
-                          <p className="font-semibold">Correct! You understood the concept.</p>
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-5 h-5" />
+                            <p className="font-semibold">Correct! +50 XP</p>
+                          </div>
                         ) : (
-                          <p className="font-semibold">Not quite. Keep learning and try again!</p>
+                          <p className="font-semibold">Not quite. The correct answer was: {currentCard.quizOptions?.[currentCard.quizAnswer!]}</p>
                         )}
                       </motion.div>
                     )}

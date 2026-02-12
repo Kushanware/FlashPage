@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Zap, Loader2, Sparkles } from 'lucide-react'
 import { generateDeckAction } from '@/app/actions'
 import { toast } from 'sonner'
+import { DeckData } from '@/lib/supabase-client'
 
 type VibeLevel = 'kid' | 'student' | 'pro'
 
@@ -50,7 +51,7 @@ import { saveDeck } from '@/lib/supabase-client'
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
 
 interface LaunchpadSectionProps {
-  onDeckGenerated?: (deck: any) => void
+  onDeckGenerated?: (deck: DeckData) => void
 }
 
 export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
