@@ -40,17 +40,13 @@ export interface UserStamina {
   totalTimeSpent: number
 }
 
+import { Card } from '@/lib/types'
+
 export interface DeckData {
   id: string
   title: string
   description: string
-  cards: Array<{
-    id: string
-    content: string
-    context?: string
-    category: string
-    difficulty: 'beginner' | 'intermediate' | 'advanced'
-  }>
+  cards: Card[]
   createdAt: string
   updatedAt: string
 }
@@ -67,11 +63,24 @@ export async function getUserStamina(userId: string): Promise<UserStamina | null
     .from('user_stamina')
     .select('*')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
 
   if (error) {
     console.error('Error fetching user stamina:', error)
     return null
+  }
+
+  // If no data found (new user), return zero initialized stats
+  if (!data) {
+    return {
+      userId: userId,
+      totalCardsCompleted: 0,
+      totalWordsLearned: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      lastActivityDate: new Date().toISOString(),
+      totalTimeSpent: 0
+    }
   }
 
   return {
@@ -103,14 +112,39 @@ export async function updateUserStamina(
     .from('user_stamina')
     .select('*')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
 
   if (currentStats) {
+    const lastDate = new Date(currentStats.last_activity_date || 0)
+    const today = new Date()
+
+    // Reset hours to compare just the calendar days
+    lastDate.setHours(0, 0, 0, 0)
+    today.setHours(0, 0, 0, 0)
+
+    const diffTime = Math.abs(today.getTime() - lastDate.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    let newStreak = currentStats.current_streak || 0
+
+    if (diffDays === 1) {
+      // Consecutive day!
+      newStreak += 1
+    } else if (diffDays > 1) {
+      // Missed a day (or more), reset to 1
+      newStreak = 1
+    } else if (diffDays === 0 && newStreak === 0) {
+      // First activity of the day but streak was 0
+      newStreak = 1
+    }
+    // If diffDays === 0, keep same streak (already counted for today)
+
     const { error } = await supabase
       .from('user_stamina')
       .update({
         total_cards_completed: (currentStats.total_cards_completed || 0) + cardsCompleted,
         total_words_learned: (currentStats.total_words_learned || 0) + wordsLearned,
+        current_streak: newStreak,
         last_activity_date: new Date().toISOString()
       })
       .eq('user_id', userId)
@@ -124,6 +158,7 @@ export async function updateUserStamina(
         user_id: userId,
         total_cards_completed: cardsCompleted,
         total_words_learned: wordsLearned,
+        current_streak: 1,
         last_activity_date: new Date().toISOString()
       }])
 
@@ -235,4 +270,51 @@ export async function recordCardCompletion(
     }])
 
   if (error) console.error('Error recording completion:', error)
+}
+
+/**
+ * Get weekly progress for the chart
+ * @param userId - User ID
+ */
+export async function getWeeklyProgress(userId: string) {
+  if (!supabase) return []
+
+  // Get start of 7 days ago
+  const date = new Date()
+  date.setDate(date.getDate() - 6) // Go back 6 days + today
+  date.setHours(0, 0, 0, 0)
+  const startDate = date.toISOString()
+
+  const { data, error } = await supabase
+    .from('card_completions')
+    .select('completed_at')
+    .eq('user_id', userId)
+    .gte('completed_at', startDate)
+    .eq('action', 'learned') // Only count learned cards as "minutes"
+
+  if (error) {
+    console.error('Error fetching weekly progress:', error)
+    return []
+  }
+
+  // Initialize last 7 days with 0
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const chartData = []
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    const dayName = days[d.getDay()]
+    const dateStr = d.toISOString().split('T')[0] // YYYY-MM-DD
+
+    // Count completions for this day
+    // Est. 1 minute per card for simplicity
+    const minutes = data.filter((row: { completed_at: string }) =>
+      row.completed_at.startsWith(dateStr)
+    ).length
+
+    chartData.push({ day: dayName, minutes })
+  }
+
+  return chartData
 }

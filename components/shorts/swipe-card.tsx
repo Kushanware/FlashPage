@@ -6,17 +6,10 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ThumbsUp, ThumbsDown, Lightbulb } from 'lucide-react'
 
-interface ShortCard {
-  id: string
-  hook: string
-  meat: string
-  simplified?: string
-  category: string
-  difficulty: 'beginner' | 'intermediate' | 'advanced'
-}
+import { Card as FlashCard } from '@/lib/types'
 
 interface SwipeCardProps {
-  card: ShortCard
+  card: FlashCard
   onLearn: () => void
   onSkip: () => void
   onShowSimplified: () => void
@@ -71,11 +64,10 @@ export function SwipeCard({
       className="w-full max-w-2xl mx-auto cursor-grab active:cursor-grabbing"
     >
       <Card
-        className={`relative h-96 border-2 overflow-hidden shadow-lg hover:shadow-xl transition-all ${
-          showSimplified
+        className={`relative h-96 border-2 overflow-hidden shadow-lg hover:shadow-xl transition-all ${showSimplified
             ? 'border-primary/50 bg-gradient-to-br from-primary/5 to-accent/5'
             : `border-border bg-gradient-to-br ${difficultyColor[card.difficulty]}/10`
-        }`}
+          }`}
       >
         {/* Right Swipe Indicator (Learn) */}
         <motion.div
@@ -103,13 +95,12 @@ export function SwipeCard({
               {card.category}
             </span>
             <span
-              className={`text-xs font-medium px-3 py-1 rounded-full ${
-                card.difficulty === 'beginner'
+              className={`text-xs font-medium px-3 py-1 rounded-full ${card.difficulty === 'beginner'
                   ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100'
                   : card.difficulty === 'intermediate'
                     ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-100'
                     : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100'
-              }`}
+                }`}
             >
               {card.difficulty}
             </span>

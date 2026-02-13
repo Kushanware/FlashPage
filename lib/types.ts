@@ -1,14 +1,17 @@
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
 
 export interface Card {
-  id: string | number
-  content: string
-  context?: string
-  category?: string
-  difficulty?: Difficulty
+  id: string
   emoji?: string
-  hook?: string
-  quiz?: string
+  hook: string
+  meat: string
+  simplified?: string
+  category: string
+  difficulty: 'beginner' | 'intermediate' | 'advanced'
+  isQuiz?: boolean
+  quizQuestion?: string
+  quizOptions?: string[]
+  quizAnswer?: number
 }
 
 export interface Deck {
@@ -16,9 +19,6 @@ export interface Deck {
   title: string
   description: string
   cards: Card[]
-  cardCount: number
-  difficulty: Difficulty
-  colorClass: string
   createdAt?: string
   updatedAt?: string
 }

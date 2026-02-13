@@ -4,10 +4,12 @@ import { useState } from 'react'
 import { LaunchpadSection } from '@/components/launchpad/launchpad-section'
 import { ShortsSection } from '@/components/shorts/shorts-section'
 import { SkillTreeSection } from '@/components/skill-tree/skill-tree-section'
-import { Sparkles, BookOpen, TrendingUp } from 'lucide-react'
+import { CollectionsSection } from '@/components/collections/collections-section'
+import { Sparkles, BookOpen, TrendingUp, BookMarked } from 'lucide-react'
+import { UserNav } from '@/components/auth/user-nav'
 
 export default function Page() {
-  const [activeView, setActiveView] = useState<'launchpad' | 'shorts' | 'skill-tree'>('launchpad')
+  const [activeView, setActiveView] = useState<'launchpad' | 'shorts' | 'skill-tree' | 'collections'>('launchpad')
   const [activeDeck, setActiveDeck] = useState<any>(null)
 
   return (
@@ -15,25 +17,28 @@ export default function Page() {
       {/* Header */}
       <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-primary-foreground" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center">
+                <BookOpen className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <h1 className="text-2xl font-bold text-foreground truncate">Literacy Stamina</h1>
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Literacy Stamina</h1>
+            <UserNav />
           </div>
           <p className="text-muted-foreground text-sm">Build your reading skills, one card at a time</p>
         </div>
       </header>
 
       {/* Navigation Tabs */}
-      <div className="sticky top-20 z-10 bg-card/95 backdrop-blur-sm border-b border-border">
+      <div className="sticky top-[105px] z-10 bg-card/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveView('launchpad')}
               className={`flex items-center gap-2 px-4 py-3 font-medium whitespace-nowrap transition-all border-b-2 ${activeView === 'launchpad'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
             >
               <Sparkles className="w-4 h-4" />
@@ -42,18 +47,28 @@ export default function Page() {
             <button
               onClick={() => setActiveView('shorts')}
               className={`flex items-center gap-2 px-4 py-3 font-medium whitespace-nowrap transition-all border-b-2 ${activeView === 'shorts'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
             >
               <BookOpen className="w-4 h-4" />
               Shorts Deck
             </button>
             <button
+              onClick={() => setActiveView('collections')}
+              className={`flex items-center gap-2 px-4 py-3 font-medium whitespace-nowrap transition-all border-b-2 ${activeView === 'collections'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+            >
+              <BookMarked className="w-4 h-4" />
+              Collections
+            </button>
+            <button
               onClick={() => setActiveView('skill-tree')}
               className={`flex items-center gap-2 px-4 py-3 font-medium whitespace-nowrap transition-all border-b-2 ${activeView === 'skill-tree'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
             >
               <TrendingUp className="w-4 h-4" />
@@ -79,6 +94,7 @@ export default function Page() {
             onComplete={() => setActiveView('skill-tree')}
           />
         )}
+        {activeView === 'collections' && <CollectionsSection />}
         {activeView === 'skill-tree' && <SkillTreeSection />}
       </div>
     </main>

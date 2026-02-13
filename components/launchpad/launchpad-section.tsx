@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Zap, Loader2, Sparkles } from 'lucide-react'
 import { generateDeckAction } from '@/app/actions'
 import { toast } from 'sonner'
-import { DeckData } from '@/lib/supabase-client'
+import { DeckData, getUserStamina, saveDeck } from '@/lib/supabase-client'
+import { useUserId } from '@/hooks/use-user-id'
 
 type VibeLevel = 'kid' | 'student' | 'pro'
 
@@ -46,9 +47,7 @@ const vibes: VibeOption[] = [
   },
 ]
 
-import { saveDeck } from '@/lib/supabase-client'
 
-const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
 
 interface LaunchpadSectionProps {
   onDeckGenerated?: (deck: DeckData) => void
@@ -59,6 +58,22 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
   const [textInput, setTextInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [generatedDeck, setGeneratedDeck] = useState<any>(null)
+
+  const userId = useUserId()
+  const [streak, setStreak] = useState(0)
+
+  // Fetch real streak
+  useEffect(() => {
+    async function loadStreak() {
+      if (userId) {
+        const stamina = await getUserStamina(userId)
+        if (stamina) {
+          setStreak(stamina.currentStreak)
+        }
+      }
+    }
+    loadStreak()
+  }, [userId])
 
   const handleGenerateDeck = async () => {
     if (!textInput.trim()) return
@@ -75,14 +90,17 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
           cards: result.cards,
         })
 
+        if (!userId) {
+          toast.error('Unable to save deck: User ID missing')
+          return
+        }
+
         // Save to Supabase (Step 2: The Transformation)
-        const savedDeck = await saveDeck(MOCK_USER_ID, {
+        const savedDeck = await saveDeck(userId, {
           title: 'AI Generated Deck',
           description: `Generated from text with ${selectedVibe} vibe`,
           cards: result.cards,
-          // Mapping generated cards to match DeckData structure roughly
-          // We might need to adjust types if strict validation is on
-        } as any)
+        })
 
         toast.success('Deck generated and saved!')
 
@@ -119,14 +137,14 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
         <div className="relative z-10">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-4xl font-bold text-foreground mb-2">De-Boringize Your Text</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-2">De-Boringize Your Text</h2>
               <p className="text-lg text-muted-foreground">
                 Transform any boring chapter into an interactive learning deck
               </p>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-accent/20 border border-accent">
               <Zap className="w-5 h-5 text-accent" />
-              <span className="text-sm font-semibold text-accent-foreground">5 day streak</span>
+              <span className="text-sm font-semibold text-accent-foreground">{streak} day streak</span>
             </div>
           </div>
         </div>

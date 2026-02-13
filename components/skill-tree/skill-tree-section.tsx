@@ -6,35 +6,27 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Copy, Share2, Award, TrendingUp, Zap, BookOpen } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { getUserStamina, UserStamina } from '@/lib/supabase-client'
+import { getUserStamina, getWeeklyProgress, UserStamina } from '@/lib/supabase-client'
 import { useEffect } from 'react'
 
-// TODO: Replace with real user ID
-const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
+import { useUserId } from '@/hooks/use-user-id'
 
-const weeklyData = [
-  { day: 'Mon', minutes: 24 },
-  { day: 'Tue', minutes: 35 },
-  { day: 'Wed', minutes: 28 },
-  { day: 'Thu', minutes: 42 },
-  { day: 'Fri', minutes: 51 },
-  { day: 'Sat', minutes: 38 },
-  { day: 'Sun', minutes: 55 },
-]
+// TODO: Replace with real user ID
+// const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
 
 const badges = [
   {
     id: 1,
     name: '3 Day Streak',
     description: 'Learn for 3 days in a row',
-    unlocked: true,
+    unlocked: true, // TODO: Make dynamic
     icon: '🔥',
   },
   {
     id: 2,
     name: '1,000 Words Conquered',
     description: 'Master 1000 vocabulary words',
-    unlocked: true,
+    unlocked: true, // TODO: Make dynamic
     icon: '📚',
   },
   {
@@ -70,23 +62,34 @@ const badges = [
 export function SkillTreeSection() {
   const [copiedLink, setCopiedLink] = useState(false)
 
+  const userId = useUserId()
+
   const [userStamina, setUserStamina] = useState<UserStamina | null>(null)
+  const [weeklyStats, setWeeklyStats] = useState<{ day: string; minutes: number }[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadStats() {
-      const stats = await getUserStamina(MOCK_USER_ID)
-      if (stats) {
-        setUserStamina(stats)
-      }
+      if (!userId) return
+
+      const [stats, graphData] = await Promise.all([
+        getUserStamina(userId),
+        getWeeklyProgress(userId)
+      ])
+
+      if (stats) setUserStamina(stats)
+      if (graphData) setWeeklyStats(graphData)
+
       setLoading(false)
     }
     loadStats()
-  }, [])
+  }, [userId])
 
   // Stamina Score Calculation
   // Use DB value or default to 14 if loading/null for demo preservation
   const staminaScore = userStamina ? Math.floor(userStamina.totalCardsCompleted / 5) : 14
+
+  const progressPercentage = Math.min(Math.round((staminaScore / 15) * 100), 100)
 
   const getStaminaTitle = (score: number) => {
     if (score >= 20) return 'Master Reader'
@@ -111,7 +114,7 @@ export function SkillTreeSection() {
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden"
       >
-        <Card className="p-8 border-primary/50 bg-gradient-to-br from-primary/10 via-card to-accent/5">
+        <Card className="p-6 md:p-8 border-primary/50 bg-gradient-to-br from-primary/10 via-card to-accent/5">
           <div className="absolute inset-0 opacity-5">
             <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary rounded-full blur-3xl" />
           </div>
@@ -123,19 +126,19 @@ export function SkillTreeSection() {
                 Stamina Score
               </p>
               <div className="space-y-2 mb-6">
-                <h2 className="text-5xl font-bold text-foreground">Level {staminaScore}</h2>
+                <h2 className="text-4xl md:text-5xl font-bold text-foreground">Level {staminaScore}</h2>
                 <p className="text-2xl font-semibold text-primary">{getStaminaTitle(staminaScore)}</p>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-muted-foreground">Progress to Level 15</span>
-                  <span className="text-sm font-semibold text-primary">75%</span>
+                  <span className="text-sm font-semibold text-primary">{progressPercentage}%</span>
                 </div>
                 <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: '75%' }}
+                    animate={{ width: `${progressPercentage}%` }}
                     transition={{ duration: 1, ease: 'easeOut' }}
                     className="h-full bg-gradient-to-r from-primary to-accent"
                   />
@@ -183,7 +186,7 @@ export function SkillTreeSection() {
         <Card className="p-6 border-border">
           <h3 className="text-lg font-semibold text-foreground mb-4">Minutes Read - Last 7 Days</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={weeklyData}>
+            <LineChart data={weeklyStats}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" />
               <YAxis stroke="hsl(var(--muted-foreground))" />

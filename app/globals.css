@@ -82,6 +82,34 @@ body {
     --sidebar-border: 0 0% 28%;
     --sidebar-ring: 210 100% 55%;
   }
+
+  /* Selection styling */
+  ::selection {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 @layer base {
