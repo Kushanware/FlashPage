@@ -40,10 +40,30 @@ export async function generateStudyDeck(boringText: string, vibe: string = 'Stud
         Output ONLY a valid JSON array.
         
         Schema for Learning Cards:
-        { "id": string, "emoji": string, "hook": string (max 4 words, punchy), "meat": string (the core lesson, concise), "simplified": string (EL15 version), "category": string, "difficulty": string }
+        { 
+          "id": string, 
+          "emoji": string, 
+          "hook": string (max 4 words, punchy), 
+          "meat": string (the core lesson, concise), 
+          "simplified": string (EL15 version), 
+          "category": string, 
+          "difficulty": string,
+          "imagePrompt": string (max 10 words, vivid visual description for AI image generation, e.g., "glowing neural network in dark void")
+        }
         
         Schema for Quiz Card (The LAST card):
-        { "id": string, "isQuiz": true, "hook": "Quiz Time!", "meat": "Test your knowledge", "quizQuestion": string, "quizOptions": string[], "quizAnswer": number (index 0-3), "category": "Quiz", "difficulty": string }`
+        { 
+          "id": string, 
+          "isQuiz": true, 
+          "hook": "Quiz Time!", 
+          "meat": "Test your knowledge", 
+          "quizQuestion": string, 
+          "quizOptions": string[], 
+          "quizAnswer": number (index 0-3), 
+          "category": "Quiz", 
+          "difficulty": string,
+          "imagePrompt": string (visual metaphor for quiz/test)
+        }`
         },
         { role: "user", content: boringText }
       ],

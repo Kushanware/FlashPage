@@ -100,7 +100,24 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
       setStats((prev) => ({ ...prev, timeElapsed: prev.timeElapsed + 1 }))
     }, 1000)
     return () => clearInterval(timer)
+    const timer = setInterval(() => {
+      setStats((prev) => ({ ...prev, timeElapsed: prev.timeElapsed + 1 }))
+    }, 1000)
+    return () => clearInterval(timer)
   }, [])
+
+  // Reset state when deck changes (Fix for Collections navigation)
+  useEffect(() => {
+    if (deck) {
+      setCards(deck.cards)
+      setCurrentIndex(0)
+      setQuizAnswer(null)
+      setShowSimplified(false)
+      setStats({ learned: 0, skipped: 0, timeElapsed: 0 })
+      setXp(0)
+      setIsSubmitting(false)
+    }
+  }, [deck])
 
   const currentCard = cards[currentIndex]
 

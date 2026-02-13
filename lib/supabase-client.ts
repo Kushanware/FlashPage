@@ -184,7 +184,14 @@ export async function getUserDecks(userId: string): Promise<DeckData[]> {
     return []
   }
 
-  return data || []
+  return (data || []).map((deck: any) => ({
+    id: deck.id,
+    title: deck.title,
+    description: deck.description,
+    cards: deck.cards,
+    createdAt: deck.created_at,
+    updatedAt: deck.updated_at
+  }))
 }
 
 /**
@@ -210,7 +217,17 @@ export async function saveDeck(userId: string, deck: Omit<DeckData, 'id' | 'crea
     return null
   }
 
-  return data?.[0]
+  const saved = data?.[0]
+  if (!saved) return null
+
+  return {
+    id: saved.id,
+    title: saved.title,
+    description: saved.description,
+    cards: saved.cards,
+    createdAt: saved.created_at,
+    updatedAt: saved.updated_at
+  } as DeckData
 }
 
 /**

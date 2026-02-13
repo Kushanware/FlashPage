@@ -64,9 +64,9 @@ export function SwipeCard({
       className="w-full max-w-2xl mx-auto cursor-grab active:cursor-grabbing"
     >
       <Card
-        className={`relative h-96 border-2 overflow-hidden shadow-lg hover:shadow-xl transition-all ${showSimplified
-            ? 'border-primary/50 bg-gradient-to-br from-primary/5 to-accent/5'
-            : `border-border bg-gradient-to-br ${difficultyColor[card.difficulty]}/10`
+        className={`relative h-[600px] border-2 overflow-hidden shadow-lg hover:shadow-xl transition-all ${showSimplified
+          ? 'border-primary/50 bg-gradient-to-br from-primary/5 to-accent/5'
+          : `border-border bg-gradient-to-br ${difficultyColor[card.difficulty]}/10`
           }`}
       >
         {/* Right Swipe Indicator (Learn) */}
@@ -89,6 +89,26 @@ export function SwipeCard({
 
         {/* Card Content */}
         <div className="h-full p-8 flex flex-col justify-between relative z-10">
+          {/* Image Section */}
+          {card.imagePrompt && !showSimplified && (
+            <div className="w-full h-48 mb-4 shrink-0 rounded-lg overflow-hidden bg-black/20 relative group">
+              <img
+                src={`https://image.pollinations.ai/prompt/${encodeURIComponent(card.imagePrompt.replace(/["']/g, ''))}?width=600&height=400&seed=${card.id}&model=flux`}
+                alt={card.hook}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 shadow-md"
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement?.classList.add('bg-gradient-to-br', 'from-primary/20', 'to-accent/20');
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
+              <div className="absolute bottom-2 right-2 text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded backdrop-blur-md border border-white/10">
+                AI Generated
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-semibold uppercase tracking-wider text-primary">
@@ -96,10 +116,10 @@ export function SwipeCard({
             </span>
             <span
               className={`text-xs font-medium px-3 py-1 rounded-full ${card.difficulty === 'beginner'
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100'
-                  : card.difficulty === 'intermediate'
-                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-100'
-                    : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100'
+                ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-100'
+                : card.difficulty === 'intermediate'
+                  ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-100'
+                  : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100'
                 }`}
             >
               {card.difficulty}
@@ -192,6 +212,6 @@ export function SwipeCard({
           )}
         </div>
       </Card>
-    </motion.div>
+    </motion.div >
   )
 }

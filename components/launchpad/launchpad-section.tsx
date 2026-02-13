@@ -106,9 +106,18 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
 
         // Redirect to Arena (Show step)
         if (onDeckGenerated) {
+          const fallbackDeck: DeckData = {
+            id: 'temp-' + Date.now(),
+            title: 'Generated Deck',
+            description: `Generated from text with ${selectedVibe} vibe`,
+            cards: result.cards,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+
           // wait a brief moment to show success
           setTimeout(() => {
-            onDeckGenerated(savedDeck || { cards: result.cards })
+            onDeckGenerated(savedDeck || fallbackDeck)
           }, 1000)
         }
 

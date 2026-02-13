@@ -12,6 +12,7 @@ export interface Card {
   quizQuestion?: string
   quizOptions?: string[]
   quizAnswer?: number
+  imagePrompt?: string
 }
 
 export interface Deck {
