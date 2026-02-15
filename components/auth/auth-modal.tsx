@@ -99,7 +99,7 @@ export function AuthModal({ trigger, open, onOpenChange }: AuthModalProps) {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Welcome to Literacy Stamina</DialogTitle>
+                    <DialogTitle>Welcome to Flashpage</DialogTitle>
                     <DialogDescription>
                         Sign in to save your progress, streaks, and decks across devices.
                     </DialogDescription>
