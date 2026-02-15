@@ -21,6 +21,9 @@ export async function generateStudyDeck(
   options: DeckGenerationOptions = {}
 ): Promise<Card[]> {
   try {
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error('Missing GROQ_API_KEY')
+    }
     const coverageHints = options.sectionHints?.length ? `\nCoverage targets:\n${options.sectionHints.map((hint) => `- ${hint}`).join('\n')}` : ''
     const targetDifficulty = options.targetDifficulty ?? 'intermediate'
 
@@ -108,7 +111,70 @@ export async function generateStudyDeck(
 
     return [];
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to generate study deck'
     console.error("Error generating study deck:", error);
-    throw new Error("Failed to generate study deck");
+    throw new Error(message);
+  }
+}
+
+const SUMMARY_SYSTEM_PROMPT = `You are a precise summarizer for study prep.
+Return a clean, structured summary in plain text only.
+- Keep key terms, definitions, and cause-effect relationships.
+- Preserve headings if present.
+- Target 12-18 short bullets or paragraphs.
+- Do not add new facts.`
+
+const chunkText = (text: string, maxChars: number) => {
+  const chunks: string[] = []
+  let start = 0
+
+  while (start < text.length) {
+    const end = Math.min(start + maxChars, text.length)
+    const slice = text.slice(start, end)
+    chunks.push(slice)
+    start = end
+  }
+
+  return chunks
+}
+
+const summarizeChunk = async (chunk: string) => {
+  const completion = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      { role: 'system', content: SUMMARY_SYSTEM_PROMPT },
+      { role: 'user', content: chunk },
+    ],
+    temperature: 0.2,
+  })
+
+  return completion.choices[0]?.message?.content?.trim() || ''
+}
+
+export async function summarizeText(text: string): Promise<string> {
+  try {
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error('Missing GROQ_API_KEY')
+    }
+    const capped = text.length > 120000 ? text.slice(0, 120000) : text
+    const chunks = chunkText(capped, 6000)
+
+    if (chunks.length === 1) {
+      return await summarizeChunk(chunks[0])
+    }
+
+    const partials = []
+    for (const chunk of chunks) {
+      const summary = await summarizeChunk(chunk)
+      if (summary) partials.push(summary)
+    }
+
+    if (partials.length === 0) return ''
+
+    const combined = partials.join('\n')
+    return await summarizeChunk(combined)
+  } catch (error) {
+    console.error('Error summarizing text:', error)
+    return ''
   }
 }

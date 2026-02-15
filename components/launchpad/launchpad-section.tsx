@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Link2, Loader2, Play, Sparkles, Zap } from 'lucide-react'
-import { fetchUrlTextAction, generateDeckAction } from '@/app/actions'
+import { Link2, Loader2, Play, Sparkles, X, Zap } from 'lucide-react'
+import { fetchUrlTextAction, generateDeckAction, generateDeckFromUrlAction } from '@/app/actions'
 import { toast } from 'sonner'
 import { DeckData, getPrebuiltDecks, getUserStamina, saveDeck } from '@/lib/supabase-client'
 import { useUserId } from '@/hooks/use-user-id'
@@ -62,6 +62,7 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
   const [urlInput, setUrlInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isUrlLoading, setIsUrlLoading] = useState(false)
+  const [isUrlGenerating, setIsUrlGenerating] = useState(false)
   const [generatedDeck, setGeneratedDeck] = useState<any>(null)
   const [prebuiltDecks, setPrebuiltDecks] = useState<DeckData[]>([])
   const [isLoadingPrebuilt, setIsLoadingPrebuilt] = useState(true)
@@ -203,6 +204,60 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
     }
   }
 
+  const handleGenerateFromUrl = async () => {
+    const trimmed = urlInput.trim()
+    if (!trimmed) return
+
+    setIsUrlGenerating(true)
+    try {
+      const result = await generateDeckFromUrlAction(trimmed, selectedVibe, difficultyMode)
+
+      if (result.success && result.cards) {
+        const deckTitle = `From URL: ${trimmed.replace(/^https?:\/\//, '')}`
+        setGeneratedDeck({
+          title: deckTitle,
+          cards: result.cards,
+        })
+
+        if (!userId) {
+          toast.error('Unable to save deck: User ID missing')
+          return
+        }
+
+        const savedDeck = await saveDeck(userId, {
+          title: deckTitle,
+          description: `Generated from URL with ${selectedVibe} vibe`,
+          cards: result.cards,
+        })
+
+        toast.success('Deck generated and saved!')
+
+        if (onDeckGenerated) {
+          const fallbackDeck: DeckData = {
+            id: 'temp-' + Date.now(),
+            title: deckTitle,
+            description: `Generated from URL with ${selectedVibe} vibe`,
+            cards: result.cards,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }
+
+          setTimeout(() => {
+            onDeckGenerated(savedDeck || fallbackDeck)
+          }, 1000)
+        }
+      } else {
+        throw new Error(result.error || 'Failed to generate deck')
+      }
+    } catch (error) {
+      console.error('Error generating deck from URL:', error)
+      const message = error instanceof Error ? error.message : 'Failed to generate deck from URL.'
+      toast.error(message)
+    } finally {
+      setIsUrlGenerating(false)
+    }
+  }
+
   return (
     <div className="space-y-8">
       {/* Hero Section */}
@@ -233,13 +288,27 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
                 <p className="text-sm text-muted-foreground">Continue where you left off</p>
                 <p className="font-semibold text-foreground">{resumeDeck.title}</p>
               </div>
-              <Button
-                onClick={() => onDeckGenerated && onDeckGenerated(resumeDeck)}
-                className="bg-primary hover:bg-primary/90"
-              >
-                <Play className="w-4 h-4 mr-2" />
-                Continue
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => onDeckGenerated && onDeckGenerated(resumeDeck)}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Continue
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Dismiss resume deck"
+                  onClick={() => {
+                    localStorage.removeItem('flashpages:lastDeck')
+                    setResumeDeck(null)
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -326,7 +395,7 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
             placeholder="Paste your textbook chapter, article, or any boring text here... and watch it transform into an interactive learning experience!"
             className="w-full h-48 p-4 rounded-lg border border-border bg-card text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
           />
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3">
             <input
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
@@ -345,6 +414,23 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
                 <>
                   <Link2 className="w-4 h-4 mr-2" />
                   Import URL
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleGenerateFromUrl}
+              disabled={!urlInput.trim() || isUrlGenerating}
+              className="h-11 bg-primary hover:bg-primary/90"
+            >
+              {isUrlGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate from URL
                 </>
               )}
             </Button>
