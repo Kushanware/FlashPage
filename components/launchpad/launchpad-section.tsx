@@ -1,15 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Zap, Loader2, Sparkles } from 'lucide-react'
-import { generateDeckAction } from '@/app/actions'
+import { Link2, Loader2, Play, Sparkles, Zap } from 'lucide-react'
+import { fetchUrlTextAction, generateDeckAction } from '@/app/actions'
 import { toast } from 'sonner'
-import { DeckData } from '@/lib/supabase-client'
+import { DeckData, getPrebuiltDecks, getUserStamina, saveDeck } from '@/lib/supabase-client'
+import { useUserId } from '@/hooks/use-user-id'
+import { localPrebuiltDecks } from '@/lib/prebuilt-decks'
 
 type VibeLevel = 'kid' | 'student' | 'pro'
+type DifficultyMode = 'auto' | 'beginner' | 'intermediate' | 'advanced'
 
 interface VibeOption {
   id: VibeLevel
@@ -46,9 +49,7 @@ const vibes: VibeOption[] = [
   },
 ]
 
-import { saveDeck } from '@/lib/supabase-client'
 
-const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
 
 interface LaunchpadSectionProps {
   onDeckGenerated?: (deck: DeckData) => void
@@ -56,9 +57,72 @@ interface LaunchpadSectionProps {
 
 export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
   const [selectedVibe, setSelectedVibe] = useState<VibeLevel>('student')
+  const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('auto')
   const [textInput, setTextInput] = useState('')
+  const [urlInput, setUrlInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isUrlLoading, setIsUrlLoading] = useState(false)
   const [generatedDeck, setGeneratedDeck] = useState<any>(null)
+  const [prebuiltDecks, setPrebuiltDecks] = useState<DeckData[]>([])
+  const [isLoadingPrebuilt, setIsLoadingPrebuilt] = useState(true)
+  const [resumeDeck, setResumeDeck] = useState<DeckData | null>(null)
+
+  const userId = useUserId()
+  const [streak, setStreak] = useState(0)
+
+  const buildDeckTitle = (text: string, cards: any[]) => {
+    const cleaned = text.replace(/\s+/g, ' ').trim()
+    if (cleaned.length > 0) {
+      const words = cleaned.split(' ')
+      const snippet = words.slice(0, 4).join(' ')
+      return `${snippet}${words.length > 4 ? '...' : ''}`
+    }
+    if (cards?.length && cards[0]?.hook) {
+      return `${cards[0].hook} Deck`
+    }
+    return 'AI Generated Deck'
+  }
+
+  // Fetch real streak
+  useEffect(() => {
+    async function loadStreak() {
+      if (userId) {
+        const stamina = await getUserStamina(userId)
+        if (stamina) {
+          setStreak(stamina.currentStreak)
+        }
+      }
+    }
+    loadStreak()
+  }, [userId])
+
+  useEffect(() => {
+    const stored = localStorage.getItem('flashpages:lastDeck')
+    if (!stored) return
+    try {
+      const parsed = JSON.parse(stored) as DeckData
+      if (parsed?.cards?.length) {
+        setResumeDeck(parsed)
+      }
+    } catch {
+      setResumeDeck(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    async function loadPrebuiltDecks() {
+      setIsLoadingPrebuilt(true)
+      try {
+        const decks = await getPrebuiltDecks()
+        setPrebuiltDecks(decks)
+      } catch (error) {
+        console.error('Failed to load prebuilt decks', error)
+      } finally {
+        setIsLoadingPrebuilt(false)
+      }
+    }
+    loadPrebuiltDecks()
+  }, [])
 
   const handleGenerateDeck = async () => {
     if (!textInput.trim()) return
@@ -67,30 +131,43 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
     try {
       console.log('Generating deck with vibe:', selectedVibe)
 
-      const result = await generateDeckAction(textInput, selectedVibe)
+      const result = await generateDeckAction(textInput, selectedVibe, difficultyMode)
 
       if (result.success && result.cards) {
+        const deckTitle = buildDeckTitle(textInput, result.cards)
         setGeneratedDeck({
-          title: 'Generated Deck',
+          title: deckTitle,
           cards: result.cards,
         })
 
+        if (!userId) {
+          toast.error('Unable to save deck: User ID missing')
+          return
+        }
+
         // Save to Supabase (Step 2: The Transformation)
-        const savedDeck = await saveDeck(MOCK_USER_ID, {
-          title: 'AI Generated Deck',
+        const savedDeck = await saveDeck(userId, {
+          title: deckTitle,
           description: `Generated from text with ${selectedVibe} vibe`,
           cards: result.cards,
-          // Mapping generated cards to match DeckData structure roughly
-          // We might need to adjust types if strict validation is on
-        } as any)
+        })
 
         toast.success('Deck generated and saved!')
 
         // Redirect to Arena (Show step)
         if (onDeckGenerated) {
+          const fallbackDeck: DeckData = {
+            id: 'temp-' + Date.now(),
+            title: deckTitle,
+            description: `Generated from text with ${selectedVibe} vibe`,
+            cards: result.cards,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+
           // wait a brief moment to show success
           setTimeout(() => {
-            onDeckGenerated(savedDeck || { cards: result.cards })
+            onDeckGenerated(savedDeck || fallbackDeck)
           }, 1000)
         }
 
@@ -102,6 +179,27 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
       toast.error('Failed to generate deck. Please try again.')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleImportUrl = async () => {
+    const trimmed = urlInput.trim()
+    if (!trimmed) return
+
+    setIsUrlLoading(true)
+    try {
+      const result = await fetchUrlTextAction(trimmed)
+      if (result.success && result.text) {
+        setTextInput(result.text)
+        toast.success('Imported text from URL')
+      } else {
+        toast.error(result.error || 'Failed to import URL')
+      }
+    } catch (error) {
+      console.error('Failed to import URL:', error)
+      toast.error('Failed to import URL')
+    } finally {
+      setIsUrlLoading(false)
     }
   }
 
@@ -119,16 +217,31 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
         <div className="relative z-10">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-4xl font-bold text-foreground mb-2">De-Boringize Your Text</h2>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-2">De-Boringize Your Text</h2>
               <p className="text-lg text-muted-foreground">
                 Transform any boring chapter into an interactive learning deck
               </p>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-accent/20 border border-accent">
               <Zap className="w-5 h-5 text-accent" />
-              <span className="text-sm font-semibold text-accent-foreground">5 day streak</span>
+              <span className="text-sm font-semibold text-accent-foreground">{streak} day streak</span>
             </div>
           </div>
+          {resumeDeck && (
+            <div className="mt-4 flex items-center justify-between gap-4 p-4 rounded-lg border border-primary/20 bg-primary/5">
+              <div>
+                <p className="text-sm text-muted-foreground">Continue where you left off</p>
+                <p className="font-semibold text-foreground">{resumeDeck.title}</p>
+              </div>
+              <Button
+                onClick={() => onDeckGenerated && onDeckGenerated(resumeDeck)}
+                className="bg-primary hover:bg-primary/90"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Continue
+              </Button>
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -161,6 +274,39 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
         </Card>
       </motion.div>
 
+      {/* Difficulty Selector */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+      >
+        <Card className="p-6 border-border">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Choose Difficulty</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { id: 'auto', label: 'Auto', desc: 'Match text complexity' },
+              { id: 'beginner', label: 'Easy', desc: 'Simple, clear cards' },
+              { id: 'intermediate', label: 'Medium', desc: 'Balanced depth' },
+              { id: 'advanced', label: 'Hard', desc: 'More advanced' },
+            ].map((level) => (
+              <motion.button
+                key={level.id}
+                onClick={() => setDifficultyMode(level.id as DifficultyMode)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`p-4 rounded-lg border-2 transition-all text-left ${difficultyMode === level.id
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-card hover:border-primary/50'
+                  }`}
+              >
+                <h4 className="font-semibold text-foreground">{level.label}</h4>
+                <p className="text-xs text-muted-foreground">{level.desc}</p>
+              </motion.button>
+            ))}
+          </div>
+        </Card>
+      </motion.div>
+
       {/* Text Input Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -180,6 +326,29 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
             placeholder="Paste your textbook chapter, article, or any boring text here... and watch it transform into an interactive learning experience!"
             className="w-full h-48 p-4 rounded-lg border border-border bg-card text-foreground placeholder-muted-foreground resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
           />
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+            <input
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              placeholder="Or paste a URL to import text..."
+              className="w-full h-11 px-4 rounded-lg border border-border bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+            />
+            <Button
+              onClick={handleImportUrl}
+              disabled={!urlInput.trim() || isUrlLoading}
+              variant="outline"
+              className="h-11 border-border hover:border-primary/50 bg-transparent"
+            >
+              {isUrlLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <Link2 className="w-4 h-4 mr-2" />
+                  Import URL
+                </>
+              )}
+            </Button>
+          </div>
           <div className="mt-4 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               {textInput.length} / 5000 characters
@@ -283,22 +452,47 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
         >
           <Card className="p-6 border-border">
             <h3 className="text-lg font-semibold text-foreground mb-4">Or Start with Pre-built Decks</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {[
-                { title: 'Shakespeare Essentials', cards: 24 },
-                { title: 'Modern Physics 101', cards: 18 },
-                { title: 'AP History Review', cards: 32 },
-              ].map((deck) => (
-                <Button
-                  key={deck.title}
-                  variant="outline"
-                  className="p-4 h-auto flex flex-col items-start justify-between border-border hover:border-primary/50 bg-transparent"
-                >
-                  <span className="font-semibold text-foreground">{deck.title}</span>
-                  <span className="text-xs text-muted-foreground">{deck.cards} cards</span>
-                </Button>
-              ))}
-            </div>
+            {isLoadingPrebuilt ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : (() => {
+              const merged = [...localPrebuiltDecks, ...prebuiltDecks]
+              const seen = new Set<string>()
+              const displayDecks = merged.filter((deck) => {
+                const key = deck.title.toLowerCase()
+                if (seen.has(key)) return false
+                seen.add(key)
+                return true
+              })
+
+              return displayDecks.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {displayDecks.map((deck) => (
+                  <Button
+                    key={deck.id}
+                    variant="outline"
+                    onClick={() => onDeckGenerated && onDeckGenerated(deck)}
+                    className="p-4 h-auto flex flex-col items-start justify-between border-border hover:border-primary/50 bg-transparent"
+                  >
+                    <span className="font-semibold text-foreground">{deck.title}</span>
+                    <div className="mt-2 space-y-1 text-left">
+                      {(deck.cards || []).slice(0, 2).map((card) => (
+                        <div key={card.id} className="text-xs text-muted-foreground line-clamp-1">
+                          <span className="font-semibold text-foreground">{card.hook}:</span> {card.meat}
+                        </div>
+                      ))}
+                    </div>
+                    <span className="mt-2 text-xs text-muted-foreground">{deck.cards?.length || 0} cards</span>
+                  </Button>
+                ))}
+              </div>
+              ) : (
+              <div className="text-sm text-muted-foreground">
+                No pre-built decks yet. Mark decks in Supabase with is_prebuilt = true to show them here.
+              </div>
+              )
+            })()}
           </Card>
         </motion.div>
       )}

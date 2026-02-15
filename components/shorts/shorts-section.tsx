@@ -6,31 +6,19 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SwipeCard } from './swipe-card'
 import { Clock, RotateCcw, Volume2, Sparkles } from 'lucide-react'
+import { Card as FlashCard, Deck } from '@/lib/types'
 import { recordCardCompletion, updateUserStamina } from '@/lib/supabase-client'
 
-// TODO: Replace with real user ID from auth context
-const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000'
+import { useUserId } from '@/hooks/use-user-id'
+
 // const MOCK_DECK_ID = '123' // Removed, using actual deck ID if available
 
 interface ShortsSectionProps {
-  deck?: any
+  deck?: Deck
   onComplete?: () => void
 }
 
-interface ShortCard {
-  id: string
-  hook: string
-  meat: string
-  simplified?: string
-  category: string
-  difficulty: 'beginner' | 'intermediate' | 'advanced'
-  isQuiz?: boolean
-  quizQuestion?: string
-  quizOptions?: string[]
-  quizAnswer?: number
-}
-
-const mockCards: ShortCard[] = [
+const mockCards: FlashCard[] = [
   {
     id: '1',
     hook: 'Ephemeral',
@@ -98,20 +86,76 @@ const mockCards: ShortCard[] = [
 ]
 
 export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
-  const [cards, setCards] = useState<ShortCard[]>(deck?.cards || mockCards)
+  const [cards, setCards] = useState<FlashCard[]>(deck?.cards || mockCards)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showSimplified, setShowSimplified] = useState(false)
   const [quizAnswer, setQuizAnswer] = useState<number | null>(null)
   const [stats, setStats] = useState({ learned: 0, skipped: 0, timeElapsed: 0 })
   const [xp, setXp] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [completedTime, setCompletedTime] = useState<number | null>(null)
+  const userId = useUserId()
+
+  const progressKey = deck?.id ? `flashpages:deckProgress:${deck.id}` : null
+  const isComplete = currentIndex >= cards.length
 
   useEffect(() => {
+    if (isComplete) return
+
     const timer = setInterval(() => {
       setStats((prev) => ({ ...prev, timeElapsed: prev.timeElapsed + 1 }))
     }, 1000)
+
     return () => clearInterval(timer)
-  }, [])
+  }, [isComplete, deck?.id])
+
+  // Reset state when deck changes (Fix for Collections navigation)
+  useEffect(() => {
+    if (deck) {
+      setCards(deck.cards)
+      setQuizAnswer(null)
+      setShowSimplified(false)
+      setIsSubmitting(false)
+      setCompletedTime(null)
+
+      const stored = progressKey ? localStorage.getItem(progressKey) : null
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored)
+          const nextIndex = Math.min(parsed.currentIndex ?? 0, deck.cards.length)
+          setCurrentIndex(nextIndex)
+          setStats({
+            learned: parsed.learned ?? 0,
+            skipped: parsed.skipped ?? 0,
+            timeElapsed: parsed.timeElapsed ?? 0,
+          })
+          setXp(parsed.xp ?? 0)
+        } catch {
+          setCurrentIndex(0)
+          setStats({ learned: 0, skipped: 0, timeElapsed: 0 })
+          setXp(0)
+        }
+      } else {
+        setCurrentIndex(0)
+        setStats({ learned: 0, skipped: 0, timeElapsed: 0 })
+        setXp(0)
+      }
+
+      localStorage.setItem('flashpages:lastDeck', JSON.stringify(deck))
+    }
+  }, [deck])
+
+  useEffect(() => {
+    if (!progressKey) return
+    const payload = {
+      currentIndex,
+      learned: stats.learned,
+      skipped: stats.skipped,
+      timeElapsed: stats.timeElapsed,
+      xp,
+    }
+    localStorage.setItem(progressKey, JSON.stringify(payload))
+  }, [progressKey, currentIndex, stats.learned, stats.skipped, stats.timeElapsed, xp])
 
   const currentCard = cards[currentIndex]
 
@@ -119,16 +163,9 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
     setShowSimplified(false)
     setQuizAnswer(null)
 
-    // Fire and forget progress tracking (BATCHED NOW)
-    // We only update local state here, DB update happens at end
-    /* 
-    if (currentCard) {
-      recordCardCompletion(MOCK_USER_ID, MOCK_DECK_ID, currentCard.id.toString(), action)
-      if (action === 'learned') {
-        updateUserStamina(MOCK_USER_ID, 1, 15) // Assume 15 words per card for now
-      }
+    if (currentCard && userId && deck?.id) {
+      recordCardCompletion(userId, deck.id, currentCard.id.toString(), action)
     }
-    */
 
     if (currentIndex < cards.length) {
       setStats((prev) => ({
@@ -154,7 +191,10 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
       // Batch update Supabase
       // 1 Card = 1 Stamina point (roughly)
       // XP maps to "wordsLearned" for now in our simple schema
-      await updateUserStamina(MOCK_USER_ID, stats.learned, xp)
+      if (userId) {
+        const minutesSpent = stats.timeElapsed > 0 ? Math.ceil(stats.timeElapsed / 60) : 0
+        await updateUserStamina(userId, stats.learned, xp, minutesSpent)
+      }
 
       if (onComplete) {
         onComplete()
@@ -163,6 +203,9 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
       console.error('Error saving progress:', error)
     } finally {
       setIsSubmitting(false)
+      if (progressKey) {
+        localStorage.removeItem(progressKey)
+      }
     }
   }
 
@@ -176,9 +219,16 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
       setStats({ learned: 0, skipped: 0, timeElapsed: 0 })
       setXp(0)
     }
+    if (progressKey) {
+      localStorage.removeItem(progressKey)
+    }
   }
 
-  const isComplete = currentIndex >= cards.length
+  useEffect(() => {
+    if (isComplete && completedTime === null) {
+      setCompletedTime(stats.timeElapsed)
+    }
+  }, [isComplete, completedTime, stats.timeElapsed])
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -228,7 +278,7 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
       </div>
 
       {/* Swipe Card Section */}
-      <div className="relative min-h-96 flex items-center justify-center">
+      <div className="relative min-h-[75vh] flex items-center justify-center">
         <AnimatePresence mode="wait">
           {!isComplete && currentCard ? (
             <div key={currentCard.id} className="w-full">
@@ -325,7 +375,7 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
                 <h3 className="text-2xl font-bold text-foreground mb-2">Session Complete!</h3>
                 <p className="text-muted-foreground mb-6">
                   You learned <span className="font-semibold text-primary">{stats.learned}</span> cards in{' '}
-                  <span className="font-semibold text-primary">{formatTime(stats.timeElapsed)}</span>
+                  <span className="font-semibold text-primary">{formatTime(completedTime ?? stats.timeElapsed)}</span>
                 </p>
                 <Button
                   onClick={handleFinish}
@@ -349,7 +399,8 @@ export function ShortsSection({ deck, onComplete }: ShortsSectionProps) {
         >
           <div className="flex items-center gap-2">
             <Volume2 className="w-4 h-4" />
-            <span>Swipe right to learn, left for simplified view</span>
+            <span className="hidden sm:inline">Swipe right to learn, left for simplified view</span>
+            <span className="sm:hidden">Swipe to learn / simplify</span>
           </div>
           <span className="text-xs">Difficulty: {currentCard.difficulty}</span>
         </motion.div>

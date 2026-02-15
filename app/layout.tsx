@@ -1,17 +1,19 @@
 import React from "react"
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Fredoka } from 'next/font/google'
 
 import './globals.css'
+import { Toaster } from "@/components/ui/sonner"
 
 const _geist = Geist({ subsets: ['latin'] })
 const _geistMono = Geist_Mono({ subsets: ['latin'] })
+const _fredoka = Fredoka({ subsets: ['latin'], variable: '--font-fredoka' })
 
 export const metadata: Metadata = {
-  title: 'Literacy Stamina - Build Reading Skills Daily',
-  description: 'Master reading comprehension and vocabulary with interactive swipeable cards powered by AI',
+  title: 'Flashpages - Turn Boring Text into Viral Shorts',
+  description: 'Turn Boring Text into Viral Shorts for Your Brain.',
   generator: 'v0.app',
-  keywords: ['literacy', 'reading', 'vocabulary', 'learning', 'education'],
+  keywords: ['flashpages', 'literacy', 'reading', 'vocabulary', 'learning', 'education', 'shorts'],
 }
 
 export const viewport: Viewport = {
@@ -26,7 +28,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+      <body className={`${_geist.className} ${_fredoka.variable} antialiased`}>
+        {children}
+        <Toaster />
+      </body>
     </html>
   )
 }

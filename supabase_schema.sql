@@ -8,6 +8,7 @@ create table if not exists decks (
   title text not null,
   description text,
   cards jsonb not null default '[]'::jsonb,
+  is_prebuilt boolean not null default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
