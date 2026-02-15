@@ -467,30 +467,30 @@ export function LaunchpadSection({ onDeckGenerated }: LaunchpadSectionProps) {
               })
 
               return displayDecks.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {displayDecks.map((deck) => (
-                  <Button
-                    key={deck.id}
-                    variant="outline"
-                    onClick={() => onDeckGenerated && onDeckGenerated(deck)}
-                    className="p-4 h-auto flex flex-col items-start justify-between border-border hover:border-primary/50 bg-transparent"
-                  >
-                    <span className="font-semibold text-foreground">{deck.title}</span>
-                    <div className="mt-2 space-y-1 text-left">
-                      {(deck.cards || []).slice(0, 2).map((card) => (
-                        <div key={card.id} className="text-xs text-muted-foreground line-clamp-1">
-                          <span className="font-semibold text-foreground">{card.hook}:</span> {card.meat}
-                        </div>
-                      ))}
-                    </div>
-                    <span className="mt-2 text-xs text-muted-foreground">{deck.cards?.length || 0} cards</span>
-                  </Button>
-                ))}
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {displayDecks.map((deck) => (
+                    <Button
+                      key={deck.id}
+                      variant="outline"
+                      onClick={() => onDeckGenerated && onDeckGenerated(deck)}
+                      className="p-4 h-auto w-full flex flex-col items-start gap-2 border-border hover:border-primary/50 bg-transparent text-left"
+                    >
+                      <span className="font-semibold text-foreground">{deck.title}</span>
+                      <div className="w-full space-y-1 overflow-hidden">
+                        {(deck.cards || []).slice(0, 2).map((card) => (
+                          <div key={card.id} className="text-xs text-muted-foreground truncate">
+                            <span className="font-semibold text-foreground">{card.hook}:</span> {card.meat}
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted-foreground">{deck.cards?.length || 0} cards</span>
+                    </Button>
+                  ))}
+                </div>
               ) : (
-              <div className="text-sm text-muted-foreground">
-                No pre-built decks yet. Mark decks in Supabase with is_prebuilt = true to show them here.
-              </div>
+                <div className="text-sm text-muted-foreground">
+                  No pre-built decks yet. Mark decks in Supabase with is_prebuilt = true to show them here.
+                </div>
               )
             })()}
           </Card>

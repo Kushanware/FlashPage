@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   description: 'Turn Boring Text into Viral Shorts for Your Brain.',
   generator: 'v0.app',
   keywords: ['flashpages', 'literacy', 'reading', 'vocabulary', 'learning', 'education', 'shorts'],
+  icons: {
+    icon: '/favicon.png',
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export const viewport: Viewport = {
