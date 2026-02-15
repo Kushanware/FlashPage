@@ -40,7 +40,7 @@ export interface UserStamina {
   totalTimeSpent: number
 }
 
-import { Card } from '@/lib/types'
+import { Card, Badge } from '@/lib/types'
 
 export interface DeckData {
   id: string
@@ -99,11 +99,13 @@ export async function getUserStamina(userId: string): Promise<UserStamina | null
  * @param userId - User ID
  * @param cardsCompleted - Number of cards completed
  * @param wordsLearned - Number of new words learned
+ * @param timeSpentMinutes - Minutes spent in session
  */
 export async function updateUserStamina(
   userId: string,
   cardsCompleted: number,
-  wordsLearned: number
+  wordsLearned: number,
+  timeSpentMinutes: number = 0
 ) {
   if (!supabase) return
 
@@ -144,6 +146,7 @@ export async function updateUserStamina(
       .update({
         total_cards_completed: (currentStats.total_cards_completed || 0) + cardsCompleted,
         total_words_learned: (currentStats.total_words_learned || 0) + wordsLearned,
+        total_time_spent: (currentStats.total_time_spent || 0) + timeSpentMinutes,
         current_streak: newStreak,
         last_activity_date: new Date().toISOString()
       })
@@ -158,6 +161,7 @@ export async function updateUserStamina(
         user_id: userId,
         total_cards_completed: cardsCompleted,
         total_words_learned: wordsLearned,
+        total_time_spent: timeSpentMinutes,
         current_streak: 1,
         last_activity_date: new Date().toISOString()
       }])
@@ -181,6 +185,40 @@ export async function getUserDecks(userId: string): Promise<DeckData[]> {
 
   if (error) {
     console.error('Error fetching decks:', error)
+    return []
+  }
+
+  return (data || []).map((deck: any) => ({
+    id: deck.id,
+    title: deck.title,
+    description: deck.description,
+    cards: deck.cards,
+    createdAt: deck.created_at,
+    updatedAt: deck.updated_at
+  }))
+}
+
+/**
+ * Get prebuilt decks (public, latest topics)
+ * @param limit - Max decks to return
+ */
+export async function getPrebuiltDecks(limit: number = 9): Promise<DeckData[]> {
+  if (!supabase) return []
+
+  const { data, error } = await supabase
+    .from('decks')
+    .select('*')
+    .eq('is_prebuilt', true)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    const message = (error as { message?: string })?.message
+    if (message && message.includes('is_prebuilt')) {
+      console.warn('Prebuilt decks unavailable: missing is_prebuilt column. Run the migration to add it.')
+    } else {
+      console.error('Error fetching prebuilt decks:', error)
+    }
     return []
   }
 
@@ -298,40 +336,164 @@ export async function getWeeklyProgress(userId: string) {
 
   // Get start of 7 days ago
   const date = new Date()
-  date.setDate(date.getDate() - 6) // Go back 6 days + today
+  date.setDate(date.getDate() - 6) // Go back 6 days (total 7 including today)
   date.setHours(0, 0, 0, 0)
-  const startDate = date.toISOString()
 
+  // We need to query card_completions (expensive) or user_stamina logs (if we had them).
+  // For MVP, we'll try to get completions.
   const { data, error } = await supabase
     .from('card_completions')
     .select('completed_at')
     .eq('user_id', userId)
-    .gte('completed_at', startDate)
-    .eq('action', 'learned') // Only count learned cards as "minutes"
+    .gte('completed_at', date.toISOString())
+    .eq('action', 'learned')
 
   if (error) {
     console.error('Error fetching weekly progress:', error)
     return []
   }
 
-  // Initialize last 7 days with 0
+  // Group by day
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const chartData = []
+  const grouped: Record<string, number> = {}
+  
+  // Initialize last 7 days
+  for (let i = 0; i < 7; i++) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    const dayName = days[d.getDay()]
+    grouped[dayName] = 0
+  }
 
+  data.forEach((item: any) => {
+    const day = new Date(item.completed_at).getDay()
+    const dayName = days[day]
+    grouped[dayName] = (grouped[dayName] || 0) + 1 // Counting cards ~ 1 min per card approx?
+  })
+
+  // Format for Recharts
+  // Note: This is an approximation (1 card = 1 min) for MVP
+  // Ideally we track time_spent in a separate log table
+  const result = []
   for (let i = 6; i >= 0; i--) {
     const d = new Date()
     d.setDate(d.getDate() - i)
     const dayName = days[d.getDay()]
-    const dateStr = d.toISOString().split('T')[0] // YYYY-MM-DD
-
-    // Count completions for this day
-    // Est. 1 minute per card for simplicity
-    const minutes = data.filter((row: { completed_at: string }) =>
-      row.completed_at.startsWith(dateStr)
-    ).length
-
-    chartData.push({ day: dayName, minutes })
+    result.push({
+      day: dayName,
+      minutes: (grouped[dayName] || 0) * 2
+    })
   }
 
-  return chartData
+  return result
 }
+
+/**
+ * Check and return user badges based on stats
+ * @param userId - User ID
+ */
+export async function checkBadges(userId: string): Promise<Badge[]> {
+  const stats = await getUserStamina(userId)
+  
+  // Default values if no stats
+  const totalCards = stats?.totalCardsCompleted || 0
+  const totalWords = stats?.totalWordsLearned || 0
+  const streak = stats?.currentStreak || 0
+  const time = stats?.totalTimeSpent || 0
+
+  const badgeDefinitions: Badge[] = [
+    {
+      id: 1,
+      name: '3 Day Streak',
+      description: 'Learn for 3 days in a row',
+      icon: '🔥',
+      unlocked: streak >= 3
+    },
+    {
+      id: 2,
+      name: '1,000 Words Conquered',
+      description: 'Master 1000 vocabulary words',
+      icon: '📚',
+      unlocked: totalWords >= 1000
+    },
+    {
+      id: 3,
+      name: 'Level 5 Reached',
+      description: 'Complete 25 cards',
+      icon: '🎓',
+      unlocked: totalCards >= 25
+    },
+    {
+      id: 4,
+      name: 'Deck Master',
+      description: 'Complete 50 cards',
+      icon: '🏆',
+      unlocked: totalCards >= 50
+    },
+    {
+      id: 5,
+      name: '100 Hour Scholar',
+      description: 'Read for 100 total hours',
+      icon: '⏰',
+      unlocked: time >= 6000
+    },
+    {
+      id: 6,
+      name: 'Perfect Week',
+      description: 'Learn every day for a week',
+      icon: '✨',
+      unlocked: streak >= 7
+    },
+  ]
+
+  return badgeDefinitions
+}
+
+/**
+ * Delete a deck
+ * @param deckId - Deck ID
+ * @param userId - User ID (for verification)
+ */
+export async function deleteDeck(deckId: string, userId: string) {
+  if (!supabase) return false
+
+  const { error } = await supabase
+    .from('decks')
+    .delete()
+    .eq('id', deckId)
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('Error deleting deck:', error)
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Update a deck title
+ * @param deckId - Deck ID
+ * @param userId - User ID (for verification)
+ * @param title - New title
+ */
+export async function updateDeckTitle(deckId: string, userId: string, title: string) {
+  if (!supabase) return false
+
+  const { error } = await supabase
+    .from('decks')
+    .update({
+      title,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', deckId)
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('Error updating deck title:', error)
+    return false
+  }
+
+  return true
+}
+              

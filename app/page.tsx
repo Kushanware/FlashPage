@@ -15,7 +15,7 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-background to-muted pb-24">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border shadow-sm">
+      <header className="sticky top-0 z-20 bg-card border-b border-border shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -31,7 +31,7 @@ export default function Page() {
       </header>
 
       {/* Navigation Tabs */}
-      <div className="sticky top-[105px] z-10 bg-card/95 backdrop-blur-sm border-b border-border">
+      <div className="sticky top-[105px] z-20 bg-card border-b border-border">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide">
             <button
@@ -94,7 +94,14 @@ export default function Page() {
             onComplete={() => setActiveView('skill-tree')}
           />
         )}
-        {activeView === 'collections' && <CollectionsSection />}
+        {activeView === 'collections' && (
+          <CollectionsSection
+            onOpenDeck={(deck) => {
+              setActiveDeck(deck)
+              setActiveView('shorts')
+            }}
+          />
+        )}
         {activeView === 'skill-tree' && <SkillTreeSection />}
       </div>
     </main>

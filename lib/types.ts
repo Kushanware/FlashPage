@@ -12,7 +12,6 @@ export interface Card {
   quizQuestion?: string
   quizOptions?: string[]
   quizAnswer?: number
-  imagePrompt?: string
 }
 
 export interface Deck {
@@ -33,6 +32,14 @@ export interface Collection {
   color: string
   lastUpdated: string
   userId?: string
+}
+
+export interface Badge {
+  id: number
+  name: string
+  description: string
+  icon: string
+  unlocked: boolean
 }
 
 export interface UserStats {

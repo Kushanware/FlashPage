@@ -2,13 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  .font-fredoka {
+    font-family: var(--font-fredoka);
   }
 }
 
