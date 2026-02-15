@@ -5,6 +5,7 @@ import { LaunchpadSection } from '@/components/launchpad/launchpad-section'
 import { ShortsSection } from '@/components/shorts/shorts-section'
 import { SkillTreeSection } from '@/components/skill-tree/skill-tree-section'
 import { CollectionsSection } from '@/components/collections/collections-section'
+import Image from 'next/image'
 import { Sparkles, BookOpen, TrendingUp, BookMarked } from 'lucide-react'
 import { UserNav } from '@/components/auth/user-nav'
 
@@ -20,9 +21,16 @@ export default function Page() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-primary-foreground" />
+                <Image
+                  src="/favicon.png"
+                  alt="FlashPage logo"
+                  width={24}
+                  height={24}
+                  className="rounded"
+                  priority
+                />
               </div>
-              <h1 className="text-2xl font-bold text-foreground truncate">Literacy Stamina</h1>
+              <h1 className="text-2xl font-bold text-foreground truncate">FlashPage</h1>
             </div>
             <UserNav />
           </div>
